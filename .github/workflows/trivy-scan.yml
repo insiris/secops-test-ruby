@@ -1,0 +1,52 @@
+name: Trivy Security Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      severity:
+        description: 'Severity levels to report'
+        required: false
+        default: 'CRITICAL,HIGH,MEDIUM'
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  trivy-scan:
+    name: Run Trivy Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Display branch information
+      run: |
+        echo "Scanning branch: ${{ github.ref_name }}"
+        echo "Commit SHA: ${{ github.sha }}"
+        
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@0.30.0
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: ${{ github.event.inputs.severity || 'CRITICAL,HIGH,MEDIUM' }}
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Upload scan results as artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: Trivy Scan Results File
+        path: trivy-results.sarif
+        retention-days: 30
